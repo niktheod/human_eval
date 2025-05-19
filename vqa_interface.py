@@ -99,7 +99,7 @@ def main():
                     st.session_state['displayed_image_data'] = None # Reset image data for the new question
                     if img_url:
                         try:
-                            with st.spinner(f"Loading image for question {idx+1}..."):
+                            with st.spinner(f"Loading image for question {idx+1}/{len(data)}..."):
                                 response = requests.get(img_url, timeout=10)
                                 response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
                                 image_data = BytesIO(response.content)
@@ -264,8 +264,7 @@ def get_random_data(num_per=1):
          # Consider if this should halt the app or just display a warning. For now, it returns empty list.
 
     random.shuffle(rand_list) # Shuffle the final list of selected items
-    st.info(f"Loaded {len(rand_list[:1])} evaluation questions.") # Inform the user how many questions were loaded
-    return rand_list[:1]
+    return rand_list
 
 def load_data():
     """Loads data from data.json."""
