@@ -24,6 +24,7 @@ def get_drive_service():
         # Load credentials from Streamlit secrets
         creds_dict = json.loads(st.secrets["google_credentials"])
         st.error(creds_dict)
+        st.error(type(creds_dict))
         creds = service_account.Credentials.from_service_account_info(
             creds_dict, scopes=SCOPES)
 
