@@ -32,7 +32,21 @@ def main():
         response = requests.get(img_url)
         image_data = BytesIO(response.content)
         img = Image.open(image_data)
-        st.image(img, caption="Image", width=1200)
+        # After loading the image from BytesIO
+        buffered = BytesIO()
+        img.save(buffered, format=img.format)
+        img_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Display centered image
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 20px 0;">
+                <img src="data:image/{img.format.lower()};base64,{img_b64}" width="1200">
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Optional: Add centered caption
+        st.markdown('<p style="text-align: center; margin: 10px 0;">Image</p>', unsafe_allow_html=True)
+        # st.image(img, caption="Image", width=1200)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
