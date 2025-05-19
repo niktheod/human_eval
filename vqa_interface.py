@@ -57,7 +57,7 @@ def main():
         Click the button below to start the evaluation when you are ready.
         """)
 
-        if st.button("Start Evaluation"):
+        if st.button("Start"):
             # Initialize evaluation state when the button is clicked
             st.session_state['data'] = get_random_data()
             st.session_state['question_index'] = 0
@@ -220,7 +220,7 @@ def main():
                 save_combined_results_json(st.session_state['combined_results'])
                 st.session_state['results_saved'] = True # Mark as saved
 
-            st.success("Thank you for completing the evaluation!")
+            st.success("Thank you!")
 
 
 def get_random_data(num_per=1):
