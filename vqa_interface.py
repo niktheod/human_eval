@@ -187,7 +187,7 @@ def get_random_data(num_per=1):
 
     random.shuffle(rand_list)
     st.info(f"Loaded {len(rand_list)} evaluation questions.")
-    return rand_list
+    return rand_list[:5]
 
 
 def load_data():
