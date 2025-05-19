@@ -126,10 +126,7 @@ def main():
                     st.session_state['responses'].append(sel_idx)
                     correct = (sel_idx == correct_idx)
                     if correct:
-                        st.success("Correct!")
                         st.session_state['score'] += 1
-                    else:
-                        st.error(f"Incorrect. Correct answer was: {options[correct_idx]}")
 
                     # Track combined results
                     t = item.get('type')
@@ -204,8 +201,8 @@ def get_random_data(num_per=1):
          st.error("No data found matching the specified types, categories, and distances.")
 
     random.shuffle(rand_list)
-    st.info(f"Loaded {len(rand_list[:1])} evaluation questions.")
-    return rand_list[:1]
+    st.info(f"Loaded {len(rand_list)} evaluation questions.")
+    return rand_list
 
 
 def load_data():
