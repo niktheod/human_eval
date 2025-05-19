@@ -4,6 +4,7 @@ import requests
 import random
 
 from io import BytesIO
+from PIL import Image
 from datetime import datetime
 
 def main():
