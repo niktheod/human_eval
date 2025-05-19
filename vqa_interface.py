@@ -1,7 +1,10 @@
 import streamlit as st
 import json
-from datetime import datetime
+import requests
 import random
+
+from io import BytesIO
+from datetime import datetime
 
 def main():
     st.title("")
@@ -24,7 +27,10 @@ def main():
         item = data[idx]
         # Display image
         img_url = item.get('image_path')
-        st.image(img_url, caption="Image", width=1200)
+        response = requests.get(img_url)
+        image_data = BytesIO(response.content)
+        img = Image.open(image_data)
+        st.image(img, caption="Image", width=1200)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
