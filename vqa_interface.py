@@ -26,8 +26,7 @@ def main():
         item = data[idx]
         # Display image
         img_url = item.get('image_path')
-        img = Image.open(img_url)
-        st.image(img, caption="Image", width=1200)
+        st.image(img_url, caption="Image", width=1200)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
