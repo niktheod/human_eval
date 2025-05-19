@@ -245,7 +245,7 @@ def save_combined_results_json(results):
     Saves combined_results into a JSON file with a nested structure
     and timestamped sessions.
     """
-    filename = "results.json"
+    filename = "./results.json"
     timestamp = datetime.now().isoformat()
 
     nested = {}
