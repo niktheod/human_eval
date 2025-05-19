@@ -186,7 +186,7 @@ def get_random_data(num_per=1):
          st.error("No data found matching the specified types, categories, and distances.")
 
     random.shuffle(rand_list)
-    st.info(f"Loaded {len(rand_list)} evaluation questions.")
+    st.info(f"Loaded {len(rand_list[:5])} evaluation questions.")
     return rand_list[:5]
 
 
