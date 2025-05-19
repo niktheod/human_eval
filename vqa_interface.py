@@ -34,7 +34,7 @@ def main():
         img = Image.open(image_data)
         # After loading the image from BytesIO
         buffered = BytesIO()
-        img.save(buffered, format=img.format)
+        img_data.save(buffered, format=img.format)
         img_b64 = base64.b64encode(buffered.getvalue()).decode()
         
         # Display centered image
