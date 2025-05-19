@@ -279,7 +279,6 @@ def save_combined_results_json(results):
 
 def main():
     st.set_page_config(layout="wide")
-    st.title("Evaluation App") # Give the app a title
 
     # --- State Management ---
     if 'page_state' not in st.session_state:
