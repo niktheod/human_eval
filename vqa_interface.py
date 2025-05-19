@@ -43,7 +43,19 @@ def main():
             st.session_state['question_index'] += 1
             st.rerun()
             return
-        selected = st.radio("Select an answer:", options, key=f"opt_{idx}", index=None)
+        # Use temporary state to avoid reloading on radio change
+        temp_key = f"temp_opt_{idx}"
+        if temp_key not in st.session_state:
+            st.session_state[temp_key] = None
+        
+        selected = st.radio(
+            "Select an answer:",
+            options,
+            index=options.index(st.session_state[temp_key]) if st.session_state[temp_key] in options else None,
+            key=f"radio_{idx}",
+            on_change=lambda: st.session_state.update({temp_key: st.session_state[f"radio_{idx}"]})
+        )
+
         if st.button("Submit", key=f"sub_{idx}"):
             try:
                 sel_idx = options.index(selected)
