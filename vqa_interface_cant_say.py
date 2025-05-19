@@ -265,7 +265,7 @@ def get_random_data(num_per=1):
          # Consider if this should halt the app or just display a warning. For now, it returns empty list.
 
     random.shuffle(rand_list) # Shuffle the final list of selected items
-    return rand_list[:1]
+    return rand_list
 
 def load_data():
     """Loads data from data.json."""
