@@ -31,7 +31,7 @@ def main():
         response = requests.get(img_url)
         image_data = BytesIO(response.content)
         img = Image.open(image_data)
-        st.image(img, caption="Image", width=1200)
+        st.image(img, caption="Image", use_column_width=True)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
