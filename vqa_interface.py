@@ -8,6 +8,7 @@ from PIL import Image
 from datetime import datetime
 
 def main():
+    st.set_page_config(layout="wide")
     st.title("")
 
     # Initialize session state for combined results
