@@ -7,6 +7,21 @@ from io import BytesIO
 from PIL import Image
 from datetime import datetime
 
+st.markdown(
+    """
+    <style>
+      .reportview-container .main .block-container {
+        max-width: 1200px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 0;
+        padding-right: 0;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 def main():
     st.set_page_config(layout="centered")
     st.title("")
