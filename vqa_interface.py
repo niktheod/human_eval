@@ -22,12 +22,12 @@ def get_drive_service():
     """Authenticates and returns a Google Drive service object."""
     try:
         # Load credentials from Streamlit secrets
-        creds_dict = json.loads(st.secrets["google_credentials"])
-        st.error(creds_dict)
-        st.error(type(creds_dict))
-        st.error(creds_dict["private_key"])
+        creds_info = st.secrets["google_credentials"]
+        # st.error(creds_dict)
+        # st.error(type(creds_dict))
+        # st.error(creds_dict["private_key"])
         creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=SCOPES)
+            creds_info, scopes=SCOPES)
 
         service = build('drive', 'v3', credentials=creds)
         return service
