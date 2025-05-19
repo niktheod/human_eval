@@ -171,11 +171,6 @@ def main():
 
         st.success("Thank you!")
 
-        if st.button("Restart Evaluation"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
-
 
 def get_random_data(num_per=1):
     """Loads data and selects a specified number of items per category/distance combination."""
