@@ -32,49 +32,52 @@ def main():
     if idx < len(data):
         item = data[idx]
 
-        # --- Conditional Image Loading and Display ---
-        # Only load and display the image if we have moved to a new question index
-        # This prevents reloading/redisplaying on every radio button click for the same question
+        # --- Conditional Image Loading Logic ---
+        # Only attempt to load the image if we have moved to a new question index
         if st.session_state['displayed_index'] != idx:
             img_url = item.get('image_path')
+            st.session_state['displayed_image_data'] = None # Clear previous image data
             if img_url:
                 try:
                     # Use st.spinner to show loading explicitly for the image
-                    with st.spinner("Loading image..."):
-                        response = requests.get(img_url)
+                    with st.spinner(f"Loading image for question {idx+1}..."):
+                        response = requests.get(img_url, timeout=10) # Added timeout
                         response.raise_for_status() # Raise an exception for bad status codes
                         image_data = BytesIO(response.content)
-                        img = Image.open(image_data)
-                        # Store the loaded image data in session state if you want to re-display without reloading
-                        st.session_state['displayed_image_data'] = img
-                        st.session_state['displayed_index'] = idx # Mark this index as displayed
+                        st.session_state['displayed_image_data'] = Image.open(image_data)
+                    st.session_state['displayed_index'] = idx # Mark this index as successfully displayed/attempted
+                except requests.exceptions.Timeout:
+                    st.error(f"Timeout loading image for question {idx+1}.")
+                    st.session_state['displayed_index'] = idx # Mark as attempted (failed)
                 except requests.exceptions.RequestException as e:
-                    st.error(f"Error loading image: {e}")
-                    st.session_state['displayed_image_data'] = None # No image loaded on error
-                    st.session_state['displayed_index'] = idx # Mark this index as processed (with error)
+                    st.error(f"Error loading image for question {idx+1}: {e}")
+                    st.session_state['displayed_index'] = idx # Mark as attempted (failed)
                 except Exception as e:
-                     st.error(f"Error processing image: {e}")
-                     st.session_state['displayed_image_data'] = None
-                     st.session_state['displayed_index'] = idx
+                     st.error(f"Error processing image for question {idx+1}: {e}")
+                     st.session_state['displayed_index'] = idx # Mark as attempted (failed)
             else:
-                st.warning(f"No image_path provided for question at index {idx}.")
-                st.session_state['displayed_image_data'] = None
-                st.session_state['displayed_index'] = idx # Mark as processed (no image)
+                st.warning(f"No image_path provided for question {idx+1}.")
+                st.session_state['displayed_index'] = idx # Mark as attempted (no image)
 
-        # Display the image if it was successfully loaded for this index
-        if st.session_state['displayed_image_data'] is not None:
-             st.image(st.session_state['displayed_image_data'], caption="Image", width=1200)
-        elif st.session_state['displayed_index'] == idx: # Only show placeholder/error if we tried for this index
-            # Image failed to load or wasn't provided, placeholder if desired
-            # st.write("Image not available.") # Optional: show a placeholder text
 
-        # --- Question, Options, and Button (always displayed) ---
-        st.subheader(item.get('question', 'No question provided'))
+        # --- Image Display Logic ---
+        # Always attempt to display the image data stored in state if available for the current index
+        # This runs on every rerun for the current question, but uses the cached data
+        if st.session_state['displayed_image_data'] is not None and st.session_state['displayed_index'] == idx:
+             st.image(st.session_state['displayed_image_data'], caption=f"Question {idx+1}", width=1200)
+        elif st.session_state['displayed_index'] == idx:
+             # If we are on this index, and no image data is stored, it means loading failed or was missing
+             st.warning(f"Image not available for question {idx+1}.")
+
+
+        # --- Question, Options, and Button (always displayed FOR THIS QUESTION) ---
+        # These lines must be indented correctly within the 'if idx < len(data):' block
+        st.subheader(item.get('question', f'Question {idx+1}: No question text provided'))
         options = item.get('options', [])
         correct_idx = item.get('correct_answer')
 
         if not options:
-            st.warning(f"No options for question at index {idx}. Skipping.")
+            st.warning(f"No options for question {idx+1}. Skipping.")
             # Auto-skip questions with no options
             st.session_state['question_index'] += 1
             # Reset displayed index so the next image loads
@@ -97,15 +100,18 @@ def main():
                 try:
                     sel_idx = options.index(selected)
                 except ValueError:
-                    sel_idx = -1 # Should not happen if options are valid
-                    st.error("Internal error: Invalid selection value.") # Handle gracefully
-                    # Maybe don't proceed if selection is invalid?
-                    return
+                    # This case should ideally not happen if 'selected' comes from 'options'
+                    sel_idx = -1
+                    st.error("Internal error: Invalid selection value.")
+                    return # Prevent moving forward on error
 
                 st.session_state['responses'].append(sel_idx)
                 correct = (sel_idx == correct_idx)
                 if correct:
                     st.session_state['score'] += 1
+                    st.success("Correct!")
+                else:
+                    st.error(f"Incorrect. Correct answer was: {options[correct_idx]}") # Show correct answer
 
                 # Track combined results
                 t = item.get('type')
@@ -118,9 +124,13 @@ def main():
                 if correct:
                     st.session_state['combined_results'][key][0] += 1
 
+                # Wait a moment before moving to the next question to show feedback
+                import time
+                time.sleep(1) # Small delay for user to see feedback
+
                 # --- Move to next question and RERUN ---
                 st.session_state['question_index'] += 1
-                # The displayed_index is intentionally *not* updated here.
+                # The displayed_index is intentionally *not* updated here before rerunning.
                 # On the *next* rerun, the script will see question_index != displayed_index
                 # and trigger the loading of the new image.
                 st.rerun()
@@ -182,13 +192,20 @@ def get_random_data(num_per=1):
                  if cat in cat_dist[t]: # Check if category exists for the type
                     for d in dists:
                         # Filter data for the current type, category, and distance
+                        # Use .get() with a default None for safety
                         filt = [i for i in data if i.get('type') == t and i.get('category') == cat and i.get('distance') == d]
                         if filt:
                             # Select num_per random items from the filtered list without replacement for this group
                             # Handle cases where there are fewer than num_per items
                             num_to_select = min(num_per, len(filt))
-                            selected_items = random.sample(filt, num_to_select)
-                            rand_list.extend(selected_items)
+                            # Ensure we don't sample more items than available
+                            if num_to_select > 0:
+                                try:
+                                    selected_items = random.sample(filt, num_to_select)
+                                    rand_list.extend(selected_items)
+                                except ValueError as e:
+                                    st.warning(f"Could not sample {num_to_select} items for Type: {t}, Category: {cat}, Distance: {d}. Available: {len(filt)}. Error: {e}")
+
                         # else:
                             # Optional: Add a warning if no data found for a specific combination
                             # st.warning(f"No data found for Type: {t}, Category: {cat}, Distance: {d}")
@@ -199,10 +216,12 @@ def get_random_data(num_per=1):
             # Optional: Warning for missing type in data/config
             # st.warning(f"Type {t} not found in data.")
 
+    if not rand_list:
+         st.error("No data found matching the specified types, categories, and distances.")
 
     random.shuffle(rand_list) # Shuffle the final list
     # Optional: Display total number of questions loaded
-    # st.info(f"Loaded {len(rand_list)} evaluation questions.")
+    st.info(f"Loaded {len(rand_list)} evaluation questions.")
     return rand_list
 
 
@@ -224,19 +243,32 @@ def load_data():
 
         # Basic validation for required fields in each item
         required_keys = ['type', 'category', 'distance', 'image_path', 'question', 'options', 'correct_answer']
+        valid_data = []
         for i, item in enumerate(data):
             if not isinstance(item, dict):
-                 st.error(f"Data format error: Item {i} is not a dictionary.")
-                 return []
+                 st.warning(f"Data format error: Item {i} is not a dictionary. Skipping.")
+                 continue
+            is_valid = True
             for key in required_keys:
                 if key not in item:
-                    st.warning(f"Missing key '{key}' in item {i}. This item might be skipped or cause errors.")
-            # Validate correct_answer index
-            if 'correct_answer' in item and 'options' in item:
-                 if not isinstance(item['correct_answer'], int) or not (0 <= item['correct_answer'] < len(item['options'])):
-                      st.warning(f"Invalid correct_answer index ({item['correct_answer']}) for item {i}. Must be a valid index for options.")
+                    st.warning(f"Missing key '{key}' in item {i} (index {i} in file). Skipping.")
+                    is_valid = False
+                    break
+            if not is_valid:
+                continue # Skip to the next item if required keys are missing
 
-        return data
+            # Validate correct_answer index
+            if 'options' in item and 'correct_answer' in item:
+                 if not isinstance(item['correct_answer'], int) or not (0 <= item['correct_answer'] < len(item['options'])):
+                      st.warning(f"Invalid correct_answer index ({item['correct_answer']}) for item {i} (index {i} in file). Must be a valid index for options. Skipping.")
+                      continue # Skip if index is invalid
+
+            valid_data.append(item)
+
+        if not valid_data:
+             st.error("No valid question data found in data.json after parsing and validation.")
+
+        return valid_data # Return only valid items
 
     except json.JSONDecodeError:
         st.error(f"JSON decoding error: Could not parse {path}. Please check the JSON syntax.")
@@ -285,15 +317,15 @@ def save_combined_results_json(results):
                 if content:
                     existing = json.loads(content)
                     if not isinstance(existing, list):
-                         st.warning(f"Existing {filename} is not a list. Overwriting.")
+                         st.warning(f"Existing {filename} is not a list. Starting new results file.")
                          existing = []
                 else:
                      existing = [] # File is empty
         except json.JSONDecodeError:
-            st.error(f"Existing {filename} is corrupt (JSON error). Starting with empty results.")
+            st.error(f"Existing {filename} is corrupt (JSON error). Starting new results file.")
             existing = []
         except Exception as e:
-            st.error(f"Error reading {filename}: {e}. Starting with empty results.")
+            st.error(f"Error reading {filename}: {e}. Starting new results file.")
             existing = []
 
     # Append the new session and write back
