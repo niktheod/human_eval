@@ -430,14 +430,12 @@ def save_combined_results_json(results):
              file_metadata['parents'] = [folder_id] # Place file in the specified folder
 
         # Create new file
-        st.info(f"Saving results to Google Drive file: {file_name}")
         request = drive_service.files().create(
              body=file_metadata,
              media_body=media,
              fields='id, name' # Fields to return in the response
         )
         response = request.execute()
-        st.success(f"Results successfully saved to Google Drive file: {response.get('name')} (ID: {response.get('id')})")
 
     except HttpError as upload_error:
         st.error(f"An API error occurred saving file to Drive: {upload_error}")
