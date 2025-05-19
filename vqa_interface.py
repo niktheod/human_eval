@@ -213,31 +213,7 @@ def main():
             correct = st.session_state.get('score', 0) # Use .get for safety
             accuracy = (correct / total * 100) if total else 0
 
-            # Display overall results
-            st.write(f"You answered {correct} out of {total} questions correctly.")
-            st.write(f"Overall Accuracy: {accuracy:.2f}%")
-
             combined = st.session_state.get('combined_results', {}) # Use .get for safety
-
-            st.subheader("Results by Category and Distance:")
-            if combined:
-                # Sort the results for consistent display order (Type, then Category, then Distance)
-                # Handle None distances by sorting them last using a lambda key
-                sorted_combined_items = sorted(combined.items(), key=lambda item: (
-                    item[0][0], # Sort by type (e.g., 'real', 'synth')
-                    item[0][1], # Sort by category (e.g., 1, 2, 3)
-                    item[0][2] is None, # Sort None distances after numeric distances
-                    item[0][2] if item[0][2] is not None else float('inf') # Sort numeric distances, inf for None
-                ))
-
-                for (t, c, d), (corr, tot) in sorted_combined_items:
-                     label = 'None' if d is None else str(d) # Display 'None' for None distance
-                     acc = (corr / tot * 100) if tot else 0
-                     # Use st.metric or st.write for display
-                     st.write(f"Type: **{t}** | Category: **{c}** | Distance: **{label}** | **{corr}/{tot}** correct ({acc:.2f}%)")
-            else:
-                 st.write("No combined results recorded.")
-
 
             # Save results to Google Drive only once after completion
             if 'results_saved' not in st.session_state or not st.session_state['results_saved']:
