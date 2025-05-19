@@ -25,19 +25,8 @@ def main():
     if idx < len(data):
         item = data[idx]
         # Display image
-        path = item.get('image_path')
-        if path and os.path.exists(path):
-            try:
-                img = Image.open(path)
-                # st.image(img, caption="Image", use_column_width=Trsue)
-                st.image(img, caption="Image", width=1200)
-            except Exception as e:
-                st.error(f"Error loading image: {e}")
-        else:
-            st.warning(f"Missing image for index {idx}: {path}. Skipping.")
-            st.session_state['question_index'] += 1
-            st.rerun()
-            return
+        img_url = item.get('image_path')
+        st.image(img_url, caption="Image", width=1200)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
