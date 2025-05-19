@@ -2,11 +2,35 @@ import streamlit as st
 import json
 import requests
 import random
-from io import BytesIO
+from io import BytesIO, StringIO # Import StringIO for text
 from PIL import Image
 from datetime import datetime
 import os
-import time # Import time for sleep
+import time
+
+# Imports for Google Drive API
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+from googleapiclient.errors import HttpError
+import base64 # Needed if credentials are base64 encoded (not in this example format, but good to know)
+
+
+SCOPES = ['https://www.googleapis.com/auth/drive.file'] # Scope for accessing specific files created/opened by the app
+
+def get_drive_service():
+    """Authenticates and returns a Google Drive service object."""
+    try:
+        # Load credentials from Streamlit secrets
+        creds_dict = json.loads(st.secrets["google_credentials"])
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=SCOPES)
+
+        service = build('drive', 'v3', credentials=creds)
+        return service
+    except Exception as e:
+        st.error(f"Error authenticating with Google Drive: {e}")
+        return None
 
 def main():
     st.set_page_config(layout="wide")
@@ -242,12 +266,29 @@ def load_data():
 
 def save_combined_results_json(results):
     """
-    Saves combined_results into a JSON file with a nested structure
-    and timestamped sessions.
+    Saves combined_results into a JSON file on Google Drive.
+    Searches for an existing file by name and updates it, or creates a new one.
     """
-    filename = "./results.json"
+    drive_service = get_drive_service()
+    if not drive_service:
+        st.error("Cannot save results: Google Drive service not available due to authentication failure.")
+        return
+
+    # Define the file name and optionally a folder ID
+    file_name = "evaluation_results.json"
+    # Replace with your actual Google Drive Folder ID if you shared a specific folder
+    # You can get the folder ID from the URL when viewing the folder in Google Drive
+    # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
+    # If folder_id is None, the file will be saved in the service account's root Drive folder
+    # It's highly recommended to use a specific folder.
+    folder_id = None # <-- **Replace with your actual Google Drive Folder ID or keep as None**
+    if folder_id is None:
+         st.warning(f"No specific folder_id provided. Results will be saved to the service account's root Drive folder as '{file_name}'.")
+         st.warning("Consider using a dedicated folder for better organization and control.")
+
     timestamp = datetime.now().isoformat()
 
+    # Structure the current session results
     nested = {}
     for (t, c, d), (corr, tot) in results.items():
         label = 'None' if d is None else str(d)
@@ -257,32 +298,138 @@ def save_combined_results_json(results):
 
     session_entry = {"timestamp": timestamp, "results": nested}
 
-    existing = []
-    if os.path.exists(filename):
-        try:
-            with open(filename, 'r') as f:
-                content = f.read()
-                if content:
-                    existing = json.loads(content)
-                    if not isinstance(existing, list):
-                         st.warning(f"Existing {filename} is not a list. Starting new results file.")
-                         existing = []
-                else:
-                     existing = []
-        except json.JSONDecodeError:
-            st.error(f"Existing {filename} is corrupt (JSON error). Starting new results file.")
-            existing = []
-        except Exception as e:
-            st.error(f"Error reading {filename}: {e}. Starting new results file.")
-            existing = []
+    existing_data = []
+    file_id = None
 
-    existing.append(session_entry)
-
+    # 1. Search for the existing file in Google Drive
     try:
-        with open(filename, 'w') as f:
-            json.dump(existing, f, indent=2)
+        q = f"name='{file_name}' and mimeType='application/json' and trashed=false"
+        if folder_id:
+             # Search within a specific folder
+            q += f" and '{folder_id}' in parents"
+        # Note: If folder_id is None, the default search behavior often searches
+        # within the scope of the service account's accessible files, but
+        # explicitly limiting to 'root' if you don't use folders can sometimes be
+        # more predictable depending on how permissions are set up. For shared folders,
+        # ensure the service account is added as an Editor/Contributor.
+
+        results = drive_service.files().list(
+            q=q,
+            spaces='drive',
+            fields='files(id, name, parents)', # Request parents field to confirm location if needed
+            # Add corpus='user' or corpus='domain' if searching shared drives
+            # corpus='user', # This is often the default for service accounts accessing their own or shared-with-them files
+            # includeItemsFromAllDrives=True and supportsAllDrives=True # Needed for Shared Drives
+        ).execute()
+
+        items = results.get('files', [])
+
+        # Filter items to ensure they are in the correct folder if folder_id is specified
+        if folder_id:
+            items = [item for item in items if folder_id in item.get('parents', [])]
+            # If multiple files with the same name exist in the folder, pick the first one
+            if len(items) > 1:
+                 st.warning(f"Multiple files named '{file_name}' found in folder ID '{folder_id}'. Using the first one found.")
+
+        if items:
+            # Assuming the (filtered) first result is the correct file
+            file_id = items[0]['id']
+            st.info(f"Found existing results file on Drive: {file_name} (ID: {file_id})")
+
+            # 2. Download existing content
+            try:
+                request = drive_service.files().get_media(fileId=file_id)
+                downloaded_bytes = BytesIO()
+                downloader = MediaIoBaseDownload(downloaded_bytes, request)
+                done = False
+                while done is False:
+                    status, done = downloader.next_chunk()
+                    # Optional: st.progress(int(status.progress() * 100), text=f"Downloading existing results ({int(status.progress() * 100)}%)...")
+
+                downloaded_bytes.seek(0) # Rewind to the beginning of the BytesIO buffer
+
+                # Decode bytes to string, handle potential empty file
+                content_str = downloaded_bytes.read().decode('utf-8')
+                if content_str.strip(): # Check if content is not just whitespace
+                    existing_data = json.loads(content_str)
+                    if not isinstance(existing_data, list):
+                        st.warning(f"Existing Drive file '{file_name}' content is not a list. Starting a new results list.")
+                        existing_data = []
+                else:
+                     st.info(f"Existing Drive file '{file_name}' is empty. Starting a new results list.")
+                     existing_data = []
+
+            except HttpError as download_error:
+                st.error(f"An API error occurred downloading existing file from Drive: {download_error}")
+                # If download fails, proceed as if file was empty or corrupt
+                existing_data = []
+                st.warning("Could not download existing results. Starting a new results list.")
+            except json.JSONDecodeError:
+                st.error(f"Existing Drive file '{file_name}' is corrupt (JSON error). Starting a new results list.")
+                existing_data = []
+            except Exception as e:
+                 st.error(f"An unexpected error occurred reading existing Drive file '{file_name}': {e}. Starting a new results list.")
+                 existing_data = []
+
+        else:
+            st.info(f"No existing results file '{file_name}' found on Drive in the specified location. Will create a new one.")
+            file_id = None # Ensure file_id is None if not found
+
+    except HttpError as search_error:
+        st.error(f"An API error occurred searching for file on Drive: {search_error}")
+        # If search fails, proceed as if file doesn't exist
+        file_id = None
+        st.warning("Could not search for existing results file. Will attempt to create a new one.")
     except Exception as e:
-        st.error(f"Error writing to {filename}: {e}")
+         st.error(f"An unexpected error occurred searching for file on Drive: {e}")
+         file_id = None
+         st.warning("Could not search for existing results file. Will attempt to create a new one.")
+
+
+    # 3. Append the new session data
+    existing_data.append(session_entry)
+    new_content = json.dumps(existing_data, indent=2)
+
+    # Use StringIO to create a file-like object from the string content
+    file_content_io = StringIO(new_content)
+
+
+    # 4. Upload/Update the file on Google Drive
+    try:
+        # MediaIoBaseUpload expects bytes or text that can be encoded.
+        # StringIO provides the read() method needed.
+        media = MediaIoBaseUpload(file_content_io, mimetype='application/json', resumable=True)
+        # chunksize=-1 means upload in a single chunk, suitable for smaller files
+
+        if file_id:
+            # Update existing file
+            st.info(f"Updating existing file ID: {file_id}")
+            # The body= parameter is for metadata updates, media_body is for content
+            request = drive_service.files().update(fileId=file_id, media_body=media, fields='id, name')
+            response = request.execute()
+            st.success(f"Results successfully updated in Google Drive file: {response.get('name')}")
+        else:
+            # Create new file
+            st.info(f"Creating new file: {file_name}")
+            file_metadata = {'name': file_name, 'mimeType': 'application/json'}
+            if folder_id:
+                file_metadata['parents'] = [folder_id] # Place file in the specified folder
+
+            request = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, name' # Fields to return in the response
+            )
+            response = request.execute()
+            # file_id = response.get('id') # You might want to store this ID if you don't search every time
+            st.success(f"Results successfully saved to new Google Drive file: {response.get('name')} (ID: {response.get('id')})")
+
+    except HttpError as upload_error:
+        st.error(f"An API error occurred saving file to Drive: {upload_error}")
+        st.warning("Results could not be saved to Google Drive.")
+    except Exception as e:
+        st.error(f"An unexpected error occurred saving file to Drive: {e}")
+        st.warning("Results could not be saved to Google Drive.")
 
 
 if __name__ == "__main__":
