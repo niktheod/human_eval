@@ -41,10 +41,8 @@ def main():
 
     # --- Instructions Page ---
     if not st.session_state['evaluation_started']:
-        st.subheader("Instructions for the Evaluation")
+        st.subheader("Instructions:")
         st.write("""
-        Instructions:
-
         1.  You will be presented with a series of images, one at a time.
         2.  Each image will be accompanied by a question and multiple choice options.
         3.  Select the option that you believe is the correct answer for the question based on the image.
