@@ -43,9 +43,7 @@ def main():
     if not st.session_state['evaluation_started']:
         st.subheader("Instructions for the Evaluation")
         st.write("""
-        Welcome to the evaluation!
-
-        Please read the following instructions carefully before you begin:
+        Instructions:
 
         1.  You will be presented with a series of images, one at a time.
         2.  Each image will be accompanied by a question and multiple choice options.
@@ -307,8 +305,8 @@ def get_random_data(num_per=1):
          # Consider if this should halt the app or just display a warning. For now, it returns empty list.
 
     random.shuffle(rand_list) # Shuffle the final list of selected items
-    st.info(f"Loaded {len(rand_list)} evaluation questions.") # Inform the user how many questions were loaded
-    return rand_list
+    st.info(f"Loaded {len(rand_list[:1])} evaluation questions.") # Inform the user how many questions were loaded
+    return rand_list[:1]
 
 def load_data():
     """Loads data from data.json."""
