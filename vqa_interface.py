@@ -16,7 +16,6 @@ from googleapiclient.errors import HttpError
 import base64 # Needed if credentials are base64 encoded (not in this example format, but good to know)
 from datetime import datetime
 
-
 SCOPES = ['https://www.googleapis.com/auth/drive.file'] # Scope for accessing specific files created/opened by the app
 
 def get_drive_service():
@@ -26,7 +25,6 @@ def get_drive_service():
         creds_info = st.secrets["google_credentials"]
         creds = service_account.Credentials.from_service_account_info(
             creds_info, scopes=SCOPES)
-
         service = build('drive', 'v3', credentials=creds)
         return service
     except Exception as e:
@@ -37,142 +35,235 @@ def main():
     st.set_page_config(layout="wide")
     st.title("")
 
-    # Initialize session state
-    if 'data' not in st.session_state:
-        st.session_state['data'] = get_random_data()
-        st.session_state['question_index'] = 0
-        st.session_state['responses'] = []
-        st.session_state['score'] = 0
-        st.session_state['combined_results'] = {}
-        st.session_state['displayed_index'] = -1
-        st.session_state['displayed_image_data'] = None
+    # Initialize session state for evaluation start
+    if 'evaluation_started' not in st.session_state:
+        st.session_state['evaluation_started'] = False
 
-    data = st.session_state['data']
-    if not data:
-        st.error("Could not load data. Please check data.json and data loading logic.")
-        return
+    # --- Instructions Page ---
+    if not st.session_state['evaluation_started']:
+        st.subheader("Instructions for the Evaluation")
+        st.write("""
+        Welcome to the evaluation!
 
-    idx = st.session_state['question_index']
+        Please read the following instructions carefully before you begin:
 
-    if idx < len(data):
-        item = data[idx]
+        1.  You will be presented with a series of images, one at a time.
+        2.  Each image will be accompanied by a question and multiple choice options.
+        3.  Select the option that you believe is the correct answer for the question based on the image.
+        4.  After selecting your answer, click the "Submit" button.
+        5.  You must select an answer before you can submit.
+        6.  Your answers will be recorded automatically.
+        7.  There is no time limit for each question or the overall evaluation, but please try to answer honestly and to the best of your ability.
+        8.  Once you submit an answer, you cannot change it.
+        9.  The evaluation will conclude after you have answered all questions.
+        10. Your results will be saved anonymously.
 
-        # Wrap the question display area in a container
-        # This can help stabilize the layout of the grouped elements
-        question_container = st.container()
+        Click the button below to start the evaluation when you are ready.
+        """)
 
-        with question_container:
-            # --- Conditional Image Loading Logic ---
-            if st.session_state['displayed_index'] != idx:
-                img_url = item.get('image_path')
-                st.session_state['displayed_image_data'] = None
-                if img_url:
-                    try:
-                        with st.spinner(f"Loading image for question {idx+1}..."):
-                            response = requests.get(img_url, timeout=10)
-                            response.raise_for_status()
-                            image_data = BytesIO(response.content)
-                            st.session_state['displayed_image_data'] = Image.open(image_data)
-                        st.session_state['displayed_index'] = idx
-                    except requests.exceptions.Timeout:
-                        st.error(f"Timeout loading image for question {idx+1}.")
-                        st.session_state['displayed_index'] = idx
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"Error loading image for question {idx+1}: {e}")
-                        st.session_state['displayed_index'] = idx
-                    except Exception as e:
-                           st.error(f"Error processing image for question {idx+1}: {e}")
-                           st.session_state['displayed_index'] = idx
-                else:
-                    st.warning(f"No image_path provided for question {idx+1}.")
-                    st.session_state['displayed_index'] = idx
+        if st.button("Start Evaluation"):
+            # Initialize evaluation state when the button is clicked
+            st.session_state['data'] = get_random_data()
+            st.session_state['question_index'] = 0
+            st.session_state['responses'] = []
+            st.session_state['score'] = 0
+            st.session_state['combined_results'] = {}
+            st.session_state['displayed_index'] = -1
+            st.session_state['displayed_image_data'] = None
+            st.session_state['evaluation_started'] = True
+            st.rerun()
 
-
-            # --- Image Display Logic ---
-            if st.session_state['displayed_image_data'] is not None and st.session_state['displayed_index'] == idx:
-                   st.image(st.session_state['displayed_image_data'], caption=f"Question {idx+1}", width=1200)
-            elif st.session_state['displayed_index'] == idx:
-                   st.warning(f"Image not available for question {idx+1}.")
-
-
-            # --- Question, Options, and Button (always displayed FOR THIS QUESTION) ---
-            st.subheader(item.get('question', f'Question {idx+1}: No question text provided'))
-            options = item.get('options', [])
-            correct_idx = item.get('correct_answer')
-
-            if not options:
-                st.warning(f"No options for question {idx+1}. Skipping.")
-                st.session_state['question_index'] += 1
-                st.session_state['displayed_index'] = -1
-                st.session_state['displayed_image_data'] = None
-                st.rerun()
-                return
-
-            selected = st.radio("Select an answer:", options, key=f"opt_{idx}", index=None)
-
-            # --- Submit Button Logic ---
-            if st.button("Submit", key=f"sub_{idx}"):
-                if selected is None:
-                   st.warning("Please select an answer before submitting.")
-                else:
-                    # --- Process Submission ---
-                    try:
-                        sel_idx = options.index(selected)
-                    except ValueError:
-                        sel_idx = -1
-                        st.error("Internal error: Invalid selection value.")
-                        return
-
-                    st.session_state['responses'].append(sel_idx)
-                    correct = (sel_idx == correct_idx)
-                    if correct:
-                        st.session_state['score'] += 1
-
-                    # Track combined results
-                    t = item.get('type')
-                    c = item.get('category')
-                    d = item.get('distance')
-                    key = (t, c, d)
-                    if key not in st.session_state['combined_results']:
-                        st.session_state['combined_results'][key] = [0, 0]
-                    st.session_state['combined_results'][key][1] += 1
-                    if correct:
-                        st.session_state['combined_results'][key][0] += 1
-
-                    # Wait a moment before moving to the next question to show feedback
-                    time.sleep(1)
-
-                    # --- Move to next question and RERUN ---
-                    st.session_state['question_index'] += 1
-                    st.rerun()
-
+    # --- Evaluation Logic (only runs if evaluation_started is True) ---
     else:
-        # Evaluation Finished
-        st.subheader("Evaluation Finished!")
-        total = len(st.session_state['data'])
-        correct = st.session_state['score']
-        accuracy = (correct / total * 100) if total else 0
+        # Initialize evaluation state if not already initialized (this might happen on first load after start button clicked)
+        # This check might be redundant if the button logic always initializes, but good practice
+        if 'data' not in st.session_state:
+             st.error("Evaluation data not initialized. Please restart.")
+             st.session_state['evaluation_started'] = False # Reset state to show instructions again
+             st.rerun()
+             return
 
-        combined = st.session_state['combined_results']
-        # if combined:
-        #     for (t, c, d), (corr, tot) in sorted(combined.items(), key=lambda x: (x[0][0], x[0][1], x[0][2] is None, x[0][2] if x[0][2] is not None else float('inf'))):
-        #         label = 'None' if d is None else d
-        #         acc = (corr / tot * 100) if tot else 0
-        #         st.write(f"Type {t} | Category {c} | Distance {label}: {corr}/{tot} correct ({acc:.2f}%)")
-        # else:
-        #     st.write("No combined results recorded.")
 
-        if 'results_saved' not in st.session_state:
-            save_combined_results_json(st.session_state['combined_results'])
-            st.session_state['results_saved'] = True
+        data = st.session_state['data']
+        if not data:
+            st.error("Could not load data. Please check data.json and data loading logic.")
+            # Optionally reset state if data load fails after starting
+            st.session_state['evaluation_started'] = False
+            st.session_state['data'] = None # Clear potentially bad data
+            st.rerun()
+            return
 
-        st.success("Thank you!")
+        idx = st.session_state['question_index']
+
+        if idx < len(data):
+            item = data[idx]
+
+            # Wrap the question display area in a container
+            # This can help stabilize the layout of the grouped elements
+            question_container = st.container()
+
+            with question_container:
+                # --- Conditional Image Loading Logic ---
+                # Only attempt to load image if we are displaying a new question
+                if st.session_state.get('displayed_index', -1) != idx:
+                    img_url = item.get('image_path')
+                    st.session_state['displayed_image_data'] = None # Reset image data for the new question
+                    if img_url:
+                        try:
+                            with st.spinner(f"Loading image for question {idx+1}..."):
+                                response = requests.get(img_url, timeout=10)
+                                response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+                                image_data = BytesIO(response.content)
+                                st.session_state['displayed_image_data'] = Image.open(image_data)
+                            st.session_state['displayed_index'] = idx # Mark this index as displayed
+                        except requests.exceptions.Timeout:
+                            st.error(f"Timeout loading image for question {idx+1}. Please check the image URL.")
+                            st.session_state['displayed_index'] = idx # Mark as attempted to load
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"Error loading image for question {idx+1}: {e}")
+                            st.session_state['displayed_index'] = idx # Mark as attempted to load
+                        except Exception as e:
+                             st.error(f"Error processing image for question {idx+1}: {e}")
+                             st.session_state['displayed_index'] = idx # Mark as attempted to load
+                    else:
+                        st.warning(f"No image_path provided for question {idx+1}.")
+                        st.session_state['displayed_index'] = idx # Mark as attempted (no image path)
+
+                # --- Image Display Logic ---
+                # Display the image if it was successfully loaded for the current question index
+                if st.session_state.get('displayed_image_data') is not None and st.session_state.get('displayed_index') == idx:
+                     st.image(st.session_state['displayed_image_data'], caption=f"Question {idx+1}", width=1200)
+                elif st.session_state.get('displayed_index') == idx:
+                     # Display a message if loading was attempted but failed or no path was provided
+                     # The specific error/warning would have been shown during loading
+                     pass # Error/Warning is shown above during loading attempt
+                # Note: If displayed_index != idx, it means we haven't attempted to load/display the image for this question yet,
+                # which should be handled by the conditional logic above on rerun.
+
+                # --- Question, Options, and Button (always displayed FOR THIS QUESTION) ---
+                st.subheader(item.get('question', f'Question {idx+1}: No question text provided'))
+
+                options = item.get('options', [])
+                correct_idx = item.get('correct_answer')
+
+                if not options:
+                    st.warning(f"No options for question {idx+1}. Skipping.")
+                    # Move to the next question automatically if no options are available
+                    st.session_state['question_index'] += 1
+                    st.session_state['displayed_index'] = -1 # Reset displayed index for next question
+                    st.session_state['displayed_image_data'] = None # Reset image data for next question
+                    st.rerun() # Rerun to load the next question
+                    return # Exit the current execution
+
+                # Use a unique key for the radio button based on the question index
+                selected = st.radio("Select an answer:", options, key=f"opt_{idx}", index=None)
+
+                # --- Submit Button Logic ---
+                # Use a unique key for the button based on the question index
+                if st.button("Submit", key=f"sub_{idx}"):
+                    if selected is None:
+                        st.warning("Please select an answer before submitting.")
+                    else:
+                        # --- Process Submission ---
+                        try:
+                            # Find the index of the selected answer in the options list
+                            sel_idx = options.index(selected)
+                        except ValueError:
+                            # This should ideally not happen if 'selected' comes directly from the options list
+                            sel_idx = -1
+                            st.error("Internal error: Invalid selection value.")
+                            return # Stop processing for this submission
+
+                        st.session_state['responses'].append(sel_idx)
+
+                        # Check if the selected index matches the correct answer index
+                        correct = (sel_idx == correct_idx)
+                        if correct:
+                            st.session_state['score'] += 1
+
+                        # Track combined results based on item properties
+                        t = item.get('type')
+                        c = item.get('category')
+                        d = item.get('distance') # Can be None
+
+                        # Use a tuple as the key for the combined results dictionary
+                        key = (t, c, d)
+
+                        # Initialize the entry for this key if it doesn't exist [correct, total]
+                        if key not in st.session_state['combined_results']:
+                            st.session_state['combined_results'][key] = [0, 0]
+
+                        # Increment the total count for this combination
+                        st.session_state['combined_results'][key][1] += 1
+                        # Increment the correct count if the answer was correct
+                        if correct:
+                            st.session_state['combined_results'][key][0] += 1
+
+                        # Optional: Display immediate feedback (can add st.success/st.error based on 'correct')
+                        # st.write(f"Your answer is: {'Correct' if correct else 'Incorrect'}")
+                        # time.sleep(1) # Pause briefly
+
+                        # --- Move to next question and RERUN ---
+                        st.session_state['question_index'] += 1
+                        # Reset displayed index and image data so the next question's image is loaded
+                        st.session_state['displayed_index'] = -1
+                        st.session_state['displayed_image_data'] = None
+                        st.rerun() # Rerun the script to display the next question or the finish screen
+
+        else:
+            # --- Evaluation Finished ---
+            st.subheader("Evaluation Finished!")
+            total = len(st.session_state.get('data', [])) # Use .get for safety
+            correct = st.session_state.get('score', 0) # Use .get for safety
+            accuracy = (correct / total * 100) if total else 0
+
+            # Display overall results
+            st.write(f"You answered {correct} out of {total} questions correctly.")
+            st.write(f"Overall Accuracy: {accuracy:.2f}%")
+
+            combined = st.session_state.get('combined_results', {}) # Use .get for safety
+
+            st.subheader("Results by Category and Distance:")
+            if combined:
+                # Sort the results for consistent display order (Type, then Category, then Distance)
+                # Handle None distances by sorting them last using a lambda key
+                sorted_combined_items = sorted(combined.items(), key=lambda item: (
+                    item[0][0], # Sort by type (e.g., 'real', 'synth')
+                    item[0][1], # Sort by category (e.g., 1, 2, 3)
+                    item[0][2] is None, # Sort None distances after numeric distances
+                    item[0][2] if item[0][2] is not None else float('inf') # Sort numeric distances, inf for None
+                ))
+
+                for (t, c, d), (corr, tot) in sorted_combined_items:
+                     label = 'None' if d is None else str(d) # Display 'None' for None distance
+                     acc = (corr / tot * 100) if tot else 0
+                     # Use st.metric or st.write for display
+                     st.write(f"Type: **{t}** | Category: **{c}** | Distance: **{label}** | **{corr}/{tot}** correct ({acc:.2f}%)")
+            else:
+                 st.write("No combined results recorded.")
+
+
+            # Save results to Google Drive only once after completion
+            if 'results_saved' not in st.session_state or not st.session_state['results_saved']:
+                save_combined_results_json(st.session_state['combined_results'])
+                st.session_state['results_saved'] = True # Mark as saved
+
+            st.success("Thank you for completing the evaluation!")
+
+            # Optional: Add a button to restart the evaluation
+            if st.button("Restart Evaluation"):
+                # Clear relevant session state variables to start fresh
+                for key in ['evaluation_started', 'data', 'question_index', 'responses', 'score', 'combined_results', 'displayed_index', 'displayed_image_data', 'results_saved']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun() # Rerun to go back to the instructions page
 
 
 def get_random_data(num_per=1):
     """Loads data and selects a specified number of items per category/distance combination."""
     data = load_data()
     types = ["synth", "real"]
+    # This dictionary defines the structure of data expected and controls sampling
     cat_dist = {
         "synth": {1: [50,40,30,20,10,5,None], 2:[50,40,30,20,10,5],
                   3:[50,40,30,20,10,5,None], 4:[50,40,30,20,10,5],
@@ -180,30 +271,44 @@ def get_random_data(num_per=1):
         "real": {1:[50,40,30,20,10,5,None], 2:[50,40,30,20,10,5],
                  3:[50,40,30,20,10,5,None], 4:[50,40,30,20,10,5]}
     }
+
     rand_list = []
+    if not data:
+        return [] # Return empty list if no data was loaded initially
 
     for t in types:
         if t in cat_dist:
             for cat, dists in cat_dist[t].items():
-                    if cat in cat_dist[t]:
-                        for d in dists:
-                            filt = [i for i in data if i.get('type') == t and i.get('category') == cat and i.get('distance') == d]
-                            if filt:
-                                num_to_select = min(num_per, len(filt))
-                                if num_to_select > 0:
-                                    try:
-                                        selected_items = random.sample(filt, num_to_select)
-                                        rand_list.extend(selected_items)
-                                    except ValueError as e:
-                                        st.warning(f"Could not sample {num_to_select} items for Type: {t}, Category: {cat}, Distance: {d}. Available: {len(filt)}. Error: {e}")
+                if cat in cat_dist[t]: # Redundant check, but doesn't hurt
+                    for d in dists:
+                        # Filter the loaded data to find items matching type, category, and distance
+                        filt = [i for i in data if i.get('type') == t and i.get('category') == cat and i.get('distance') == d]
+
+                        if filt: # Only attempt to sample if there are items matching the filter
+                            num_to_select = min(num_per, len(filt)) # Ensure we don't ask for more items than available
+
+                            if num_to_select > 0:
+                                try:
+                                    # Randomly sample the required number of items from the filtered list
+                                    selected_items = random.sample(filt, num_to_select)
+                                    rand_list.extend(selected_items) # Add the selected items to the list
+                                except ValueError as e:
+                                     # This exception can occur if num_to_select > len(filt), though min() should prevent it.
+                                     # Keep it for robust error handling.
+                                     st.warning(f"Could not sample {num_to_select} items for Type: {t}, Category: {cat}, Distance: {d}. Available: {len(filt)}. Error: {e}")
+                            # else:
+                                # st.info(f"No items to select for Type: {t}, Category: {cat}, Distance: {d} as num_to_select is 0.")
+                        # else:
+                            # st.info(f"No data items found for Type: {t}, Category: {cat}, Distance: {d}.")
+
 
     if not rand_list:
-           st.error("No data found matching the specified types, categories, and distances.")
+         st.error("No data found matching the specified types, categories, and distances after filtering and sampling.")
+         # Consider if this should halt the app or just display a warning. For now, it returns empty list.
 
-    random.shuffle(rand_list)
-    st.info(f"Loaded {len(rand_list)} evaluation questions.")
+    random.shuffle(rand_list) # Shuffle the final list of selected items
+    st.info(f"Loaded {len(rand_list)} evaluation questions.") # Inform the user how many questions were loaded
     return rand_list
-
 
 def load_data():
     """Loads data from data.json."""
@@ -221,30 +326,34 @@ def load_data():
             st.error("Data format error: data.json should contain a JSON list.")
             return []
 
+        # Optional: Add data validation for each item
         required_keys = ['type', 'category', 'distance', 'image_path', 'question', 'options', 'correct_answer']
         valid_data = []
         for i, item in enumerate(data):
             if not isinstance(item, dict):
-                   st.warning(f"Data format error: Item at index {i} is not a dictionary. Skipping.")
-                   continue
+                st.warning(f"Data format error: Item at index {i} is not a dictionary. Skipping.")
+                continue
+
             is_valid = True
             for key in required_keys:
                 if key not in item:
                     st.warning(f"Missing key '{key}' in item at index {i}. Skipping.")
                     is_valid = False
                     break
+
             if not is_valid:
                 continue
 
+            # Validate correct_answer index if options and correct_answer are present
             if 'options' in item and 'correct_answer' in item:
-                   if not isinstance(item['correct_answer'], int) or not (0 <= item['correct_answer'] < len(item['options'])):
-                       st.warning(f"Invalid correct_answer index ({item.get('correct_answer')}) for item at index {i}. Must be a valid index for options. Skipping.")
-                       continue
+                 if not isinstance(item['correct_answer'], int) or not (0 <= item['correct_answer'] < len(item['options'])):
+                     st.warning(f"Invalid correct_answer index ({item.get('correct_answer')}) for item at index {i}. Must be a valid index for options. Skipping.")
+                     continue
 
             valid_data.append(item)
 
         if not valid_data:
-               st.error("No valid question data found in data.json after parsing and validation.")
+             st.error("No valid question data found in data.json after parsing and validation.")
 
         return valid_data
 
@@ -254,6 +363,7 @@ def load_data():
     except Exception as e:
         st.error(f"Loading error: {e}")
         return []
+
 
 def save_combined_results_json(results):
     """
@@ -268,161 +378,70 @@ def save_combined_results_json(results):
 
     # Define the file name and optionally a folder ID
     timestamp_ms = int(time.time() * 1000)
-    file_name = f"{timestamp_ms}.json"
+    file_name = f"{timestamp_ms}.json" # Use a unique timestamp for each file
+
     # Replace with your actual Google Drive Folder ID if you shared a specific folder
     # You can get the folder ID from the URL when viewing the folder in Google Drive
     # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
     # If folder_id is None, the file will be saved in the service account's root Drive folder
     # It's highly recommended to use a specific folder.
-    folder_id = "1B6Q1DwCCK4JpIZKgZemkZidq6zTrmca_"
-    if folder_id is None:
-           st.warning(f"No specific folder_id provided. Results will be saved to the service account's root Drive folder as '{file_name}'.")
-           st.warning("Consider using a dedicated folder for better organization and control.")
+    folder_id = "1B6Q1DwCCK4JpIZKgZemkZidq6zTrmca_" # Replace with your actual folder ID
+    if folder_id is None or folder_id == "YOUR_FOLDER_ID_HERE":
+         st.warning(f"No specific folder_id provided or placeholder used. Results will be saved to the service account's root Drive folder as '{file_name}'.")
+         st.warning("Consider using a dedicated folder for better organization and control by setting 'folder_id'.")
+         folder_id = None # Ensure folder_id is None if not set or is placeholder
 
     timestamp = datetime.now().isoformat()
 
-    # Structure the current session results
+    # Structure the current session results in a nested dictionary
     nested = {}
     for (t, c, d), (corr, tot) in results.items():
-        label = 'None' if d is None else str(d)
-        if t not in nested: nested[t] = {}
-        if c not in nested[t]: nested[t][c] = {}
+        label = 'None' if d is None else str(d) # Convert distance to string for JSON key
+        if t not in nested:
+            nested[t] = {}
+        if c not in nested[t]:
+            nested[t][c] = {}
         nested[t][c][label] = {"correct": corr, "total": tot}
 
     session_entry = {"timestamp": timestamp, "results": nested}
 
-    existing_data = []
-    file_id = None
+    # For this implementation, we are creating a new file for each session
+    # If you intended to append to a single file, the logic below would need
+    # to download the existing file, append, and then upload. The current
+    # implementation creates a new file named with a timestamp, which is safer
+    # for concurrent evaluations but results in many files.
+    # The existing code was already trying to search for a file with a timestamp,
+    # implying it also intended to create unique files or possibly find one
+    # from the *current* session's start time if that was the file naming logic.
+    # Let's stick to creating a new file per session as the original file naming
+    # suggests. The previous search/download logic seems more suited for appending
+    # to a single file, which isn't happening with the timestamped filename.
+    # So, we will simplify this part to just create a new file.
 
-    # 1. Search for the existing file in Google Drive
-    try:
-        q = f"name='{file_name}' and mimeType='application/json' and trashed=false"
-        if folder_id:
-            # Search within a specific folder
-            q += f" and '{folder_id}' in parents"
-        else:
-            # If no folder_id specified, limit search to root for slightly more control,
-            # though service account scope might handle this.
-             q += " and 'root' in parents"
-
-
-        results = drive_service.files().list(
-            q=q,
-            spaces='drive',
-            fields='files(id, name, parents)', # Request parents field to confirm location if needed
-            # Add corpus='user' or corpus='domain' if searching shared drives
-            # corpus='user', # This is often the default for service accounts accessing their own or shared-with-them files
-            # includeItemsFromAllDrives=True and supportsAllDrives=True # Needed for Shared Drives
-        ).execute()
-
-        items = results.get('files', [])
-
-        # Filter items to ensure they are in the correct folder if folder_id is specified
-        # This handles cases where files of the same name might exist elsewhere accessible to the service account
-        if folder_id:
-            items = [item for item in items if folder_id in item.get('parents', [])]
-            # If multiple files with the same name exist in the folder, pick the first one
-            if len(items) > 1:
-                   st.warning(f"Multiple files named '{file_name}' found in folder ID '{folder_id}'. Using the first one found.")
-
-        if items:
-            # Assuming the (filtered) first result is the correct file
-            file_id = items[0]['id']
-            st.info(f"Found existing results file on Drive: {file_name} (ID: {file_id})")
-
-            # 2. Download existing content
-            try:
-                request = drive_service.files().get_media(fileId=file_id)
-                downloaded_bytes = BytesIO() # Use BytesIO for downloading binary content
-                downloader = MediaIoBaseDownload(downloaded_bytes, request)
-                done = False
-                # Optional: Show download progress
-                # progress_bar = st.progress(0, text="Downloading existing results...")
-                while done is False:
-                    status, done = downloader.next_chunk()
-                    # progress_bar.progress(int(status.progress() * 100), text=f"Downloading existing results ({int(status.progress() * 100)}%)...")
-                # progress_bar.empty() # Clear progress bar after completion
-
-                downloaded_bytes.seek(0) # Rewind to the beginning of the BytesIO buffer
-
-                # Decode bytes to string, handle potential empty file
-                content_bytes = downloaded_bytes.read()
-                if content_bytes.strip(): # Check if content is not just whitespace bytes
-                    content_str = content_bytes.decode('utf-8')
-                    existing_data = json.loads(content_str)
-                    if not isinstance(existing_data, list):
-                        st.warning(f"Existing Drive file '{file_name}' content is not a list. Starting a new results list.")
-                        existing_data = []
-                else:
-                   st.info(f"Existing Drive file '{file_name}' is empty. Starting a new results list.")
-                   existing_data = []
-
-            except HttpError as download_error:
-                st.error(f"An API error occurred downloading existing file from Drive: {download_error}")
-                # If download fails, proceed as if file was empty or corrupt
-                existing_data = []
-                st.warning("Could not download existing results. Starting a new results list.")
-            except json.JSONDecodeError:
-                st.error(f"Existing Drive file '{file_name}' is corrupt (JSON error). Starting a new results list.")
-                existing_data = []
-            except Exception as e:
-                   st.error(f"An unexpected error occurred reading existing Drive file '{file_name}': {e}. Starting a new results list.")
-                   existing_data = []
-
-        else:
-            file_id = None # Ensure file_id is None if not found
-
-    except HttpError as search_error:
-        st.error(f"An API error occurred searching for file on Drive: {search_error}")
-        # If search fails, proceed as if file doesn't exist
-        file_id = None
-        st.warning("Could not search for existing results file. Will attempt to create a new one.")
-    except Exception as e:
-           st.error(f"An unexpected error occurred searching for file on Drive: {e}")
-           file_id = None
-           st.warning("Could not search for existing results file. Will attempt to create a new one.")
-
-
-    # 3. Append the new session data
-    existing_data.append(session_entry)
-    new_content = json.dumps(existing_data, indent=2)
+    new_content = json.dumps([session_entry], indent=2) # Wrap in a list to match original file structure assumption
 
     # --- Prepare content for Upload (Encode to Bytes) ---
-    # Encode the JSON string into bytes using UTF-8
     new_content_bytes = new_content.encode('utf-8')
-
-    # Use BytesIO to create a bytes-based file-like object from the bytes content
     file_content_io = BytesIO(new_content_bytes)
-    # No need for seek(0) here because BytesIO(initial_bytes) sets position to 0 initially
     # ----------------------------------------------------
-
 
     # 4. Upload/Update the file on Google Drive
     try:
-        # MediaIoBaseUpload now receives a BytesIO object, which provides bytes
         media = MediaIoBaseUpload(file_content_io, mimetype='application/json', resumable=True)
-        # chunksize=-1 means upload in a single chunk, suitable for smaller files
 
-        if file_id:
-            # Update existing file
-            st.info(f"Updating existing file ID: {file_id}")
-            # The body= parameter is for metadata updates, media_body is for content
-            request = drive_service.files().update(fileId=file_id, media_body=media, fields='id, name')
-            response = request.execute()
-            st.success(f"Results successfully updated in Google Drive file: {response.get('name')}")
-        else:
-            # Create new file
-            file_metadata = {'name': file_name, 'mimeType': 'application/json'}
-            if folder_id:
-                file_metadata['parents'] = [folder_id] # Place file in the specified folder
+        file_metadata = {'name': file_name, 'mimeType': 'application/json'}
+        if folder_id:
+             file_metadata['parents'] = [folder_id] # Place file in the specified folder
 
-            request = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, name' # Fields to return in the response
-            )
-            response = request.execute()
-            # file_id = response.get('id') # You might want to store this ID if you don't search every time
+        # Create new file
+        st.info(f"Saving results to Google Drive file: {file_name}")
+        request = drive_service.files().create(
+             body=file_metadata,
+             media_body=media,
+             fields='id, name' # Fields to return in the response
+        )
+        response = request.execute()
+        st.success(f"Results successfully saved to Google Drive file: {response.get('name')} (ID: {response.get('id')})")
 
     except HttpError as upload_error:
         st.error(f"An API error occurred saving file to Drive: {upload_error}")
