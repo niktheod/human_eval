@@ -37,23 +37,41 @@ def main():
     st.set_page_config(layout="wide")
     st.title("")
 
-    # Initialize session state
+    # --- INIT SESSION STATE ---
+    if 'started' not in st.session_state:
+        st.session_state.started = False
     if 'data' not in st.session_state:
-        st.session_state['data'] = get_random_data()
-        st.session_state['question_index'] = 0
-        st.session_state['responses'] = []
-        st.session_state['score'] = 0
-        st.session_state['combined_results'] = {}
-        st.session_state['displayed_index'] = -1
-        st.session_state['displayed_image_data'] = None
+        st.session_state.data = get_random_data()
+        st.session_state.question_index = 0
+        st.session_state.responses = []
+        st.session_state.score = 0
+        st.session_state.combined_results = {}
+        st.session_state.displayed_index = -1
+        st.session_state.displayed_image_data = None
 
-    data = st.session_state['data']
-    if not data:
-        st.error("Could not load data. Please check data.json and data loading logic.")
+    # --- PRE‑EVAL INSTRUCTIONS SCREEN ---
+    if not st.session_state.started:
+        st.markdown("""
+        ### Welcome to the Evaluation!
+
+        Please read the instructions below **carefully** before starting:
+
+        1. You will be shown a series of questions, some with images.
+        2. For each question, select the option you think is correct.
+        3. Click **Submit** to lock in your answer and immediately move on.
+        4. Your score will be tallied and saved to Google Drive at the end.
+        5. **Do not** refresh or close your browser until you see “Evaluation Finished!”
+
+        When you’re ready, hit **Start** below.
+        """)
+        if st.button("Start"):
+            st.session_state.started = True
+            st.experimental_rerun()
         return
 
-    idx = st.session_state['question_index']
-
+    # --- ACTUAL EVALUATION FLOW (your existing idx < len(data) logic goes here) ---
+    data = st.session_state.data
+    idx = st.session_state.question_index
     if idx < len(data):
         item = data[idx]
 
