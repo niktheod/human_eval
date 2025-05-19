@@ -43,16 +43,9 @@ def main():
     if not st.session_state['evaluation_started']:
         st.subheader("Instructions:")
         st.write("""
-        1.  You will be presented with a series of images, one at a time.
-        2.  Each image will be accompanied by a question and multiple choice options.
-        3.  Select the option that you believe is the correct answer for the question based on the image.
-        4.  After selecting your answer, click the "Submit" button.
-        5.  You must select an answer before you can submit.
-        6.  Your answers will be recorded automatically.
-        7.  There is no time limit for each question or the overall evaluation, but please try to answer honestly and to the best of your ability.
-        8.  Once you submit an answer, you cannot change it.
-        9.  The evaluation will conclude after you have answered all questions.
-        10. Your results will be saved anonymously.
+        1.  You will be asked to answer 62 very simple visual questions. This should take no more than 10 to 15 minutes.
+        2.  If none of the answer choices seem correct, please still select one (even at random) so you can continue to the next question.
+        3.  Use a large screen (such as a monitor or laptop) for this task, as some visual details may not be visible on a mobile device.
 
         Click the button below to start the evaluation when you are ready.
         """)
