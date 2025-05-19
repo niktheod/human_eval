@@ -23,7 +23,6 @@ st.markdown(
 )
 
 def main():
-    st.set_page_config(layout="centered")
     st.title("")
 
     # Initialize session state for combined results
