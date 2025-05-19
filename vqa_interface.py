@@ -222,14 +222,6 @@ def main():
 
             st.success("Thank you for completing the evaluation!")
 
-            # Optional: Add a button to restart the evaluation
-            if st.button("Restart Evaluation"):
-                # Clear relevant session state variables to start fresh
-                for key in ['evaluation_started', 'data', 'question_index', 'responses', 'score', 'combined_results', 'displayed_index', 'displayed_image_data', 'results_saved']:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                st.rerun() # Rerun to go back to the instructions page
-
 
 def get_random_data(num_per=1):
     """Loads data and selects a specified number of items per category/distance combination."""
