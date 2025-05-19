@@ -44,8 +44,7 @@ def main():
         st.subheader("Instructions:")
         st.write("""
         1.  You will be asked to answer 62 very simple visual questions. This should take no more than 10 to 15 minutes.
-        2.  If none of the answer choices seem correct, please still select one (even at random) so you can continue to the next question.
-        3.  Use a large screen (such as a monitor or laptop) for this task, as some visual details may not be visible on a mobile device.
+        2.  Use a large screen (such as a monitor or laptop) for this task, as some visual details may not be visible on a mobile device.
 
         Click the button below to start the evaluation when you are ready.
         """)
