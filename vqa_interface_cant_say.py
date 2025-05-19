@@ -343,7 +343,7 @@ def save_combined_results_json(results):
     # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
     # If folder_id is None, the file will be saved in the service account's root Drive folder
     # It's highly recommended to use a specific folder.
-    folder_id = "1B6Q1DwCCK4JpIZKgZemkZidq6zTrmca_" # Replace with your actual folder ID
+    folder_id = "1XEhq5Niv7NgzwWNGJ9EerElHXyvvHwHw"
     if folder_id is None or folder_id == "YOUR_FOLDER_ID_HERE":
          st.warning(f"No specific folder_id provided or placeholder used. Results will be saved to the service account's root Drive folder as '{file_name}'.")
          st.warning("Consider using a dedicated folder for better organization and control by setting 'folder_id'.")
