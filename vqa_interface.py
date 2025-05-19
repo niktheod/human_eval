@@ -57,6 +57,7 @@ def main():
         )
 
         if st.button("Submit", key=f"sub_{idx}"):
+            selected = st.session_state[temp_key]
             try:
                 sel_idx = options.index(selected)
             except ValueError:
