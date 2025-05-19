@@ -14,6 +14,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from googleapiclient.errors import HttpError
 import base64 # Needed if credentials are base64 encoded (not in this example format, but good to know)
+from datetime import datetime
 
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file'] # Scope for accessing specific files created/opened by the app
@@ -276,7 +277,7 @@ def save_combined_results_json(results):
         return
 
     # Define the file name and optionally a folder ID
-    file_name = "evaluation_results.json"
+    file_name = timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # Replace with your actual Google Drive Folder ID if you shared a specific folder
     # You can get the folder ID from the URL when viewing the folder in Google Drive
     # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
