@@ -8,6 +8,7 @@ from PIL import Image
 from datetime import datetime
 
 def main():
+    st.set_page_config(layout="centered")
     st.title("")
 
     # Initialize session state for combined results
@@ -31,7 +32,7 @@ def main():
         response = requests.get(img_url)
         image_data = BytesIO(response.content)
         img = Image.open(image_data)
-        st.image(img, caption="Image", use_container_width=True)
+        st.image(img, caption="Image", width=1200)
 
         # Display question and options
         st.subheader(item.get('question', 'No question provided'))
