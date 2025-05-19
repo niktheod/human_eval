@@ -155,17 +155,15 @@ def main():
         total = len(st.session_state['data'])
         correct = st.session_state['score']
         accuracy = (correct / total * 100) if total else 0
-        st.write(f"Overall: {correct}/{total} correct ({accuracy:.2f}%)")
 
-        st.subheader("Results by Type, Category & Distance:")
         combined = st.session_state['combined_results']
-        if combined:
-            for (t, c, d), (corr, tot) in sorted(combined.items(), key=lambda x: (x[0][0], x[0][1], x[0][2] is None, x[0][2] if x[0][2] is not None else float('inf'))):
-                label = 'None' if d is None else d
-                acc = (corr / tot * 100) if tot else 0
-                st.write(f"Type {t} | Category {c} | Distance {label}: {corr}/{tot} correct ({acc:.2f}%)")
-        else:
-            st.write("No combined results recorded.")
+        # if combined:
+        #     for (t, c, d), (corr, tot) in sorted(combined.items(), key=lambda x: (x[0][0], x[0][1], x[0][2] is None, x[0][2] if x[0][2] is not None else float('inf'))):
+        #         label = 'None' if d is None else d
+        #         acc = (corr / tot * 100) if tot else 0
+        #         st.write(f"Type {t} | Category {c} | Distance {label}: {corr}/{tot} correct ({acc:.2f}%)")
+        # else:
+        #     st.write("No combined results recorded.")
 
         if 'results_saved' not in st.session_state:
             save_combined_results_json(st.session_state['combined_results'])
@@ -277,7 +275,8 @@ def save_combined_results_json(results):
         return
 
     # Define the file name and optionally a folder ID
-    file_name = timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp_ms = int(time.time() * 1000)
+    file_name = f"file_{timestamp_ms}.json"
     # Replace with your actual Google Drive Folder ID if you shared a specific folder
     # You can get the folder ID from the URL when viewing the folder in Google Drive
     # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
@@ -379,7 +378,6 @@ def save_combined_results_json(results):
                  existing_data = []
 
         else:
-            st.info(f"No existing results file '{file_name}' found on Drive in the specified location. Will create a new one.")
             file_id = None # Ensure file_id is None if not found
 
     except HttpError as search_error:
@@ -422,7 +420,6 @@ def save_combined_results_json(results):
             st.success(f"Results successfully updated in Google Drive file: {response.get('name')}")
         else:
             # Create new file
-            st.info(f"Creating new file: {file_name}")
             file_metadata = {'name': file_name, 'mimeType': 'application/json'}
             if folder_id:
                 file_metadata['parents'] = [folder_id] # Place file in the specified folder
@@ -434,7 +431,6 @@ def save_combined_results_json(results):
             )
             response = request.execute()
             # file_id = response.get('id') # You might want to store this ID if you don't search every time
-            st.success(f"Results successfully saved to new Google Drive file: {response.get('name')} (ID: {response.get('id')})")
 
     except HttpError as upload_error:
         st.error(f"An API error occurred saving file to Drive: {upload_error}")
