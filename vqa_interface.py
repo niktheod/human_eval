@@ -23,7 +23,7 @@ def get_drive_service():
     try:
         # Load credentials from Streamlit secrets
         creds_info = st.secrets["google_credentials"]
-        # st.error(creds_dict)
+        st.error(creds_info)
         # st.error(type(creds_dict))
         # st.error(creds_dict["private_key"])
         creds = service_account.Credentials.from_service_account_info(
