@@ -271,7 +271,7 @@ def save_combined_results_json(results):
 
     # Define the file name and optionally a folder ID
     timestamp_ms = int(time.time() * 1000)
-    file_name = f"file_{timestamp_ms}.json"
+    file_name = f"{timestamp_ms}.json"
     # Replace with your actual Google Drive Folder ID if you shared a specific folder
     # You can get the folder ID from the URL when viewing the folder in Google Drive
     # Example URL: https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
