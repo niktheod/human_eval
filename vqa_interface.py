@@ -1,9 +1,7 @@
 import streamlit as st
-from PIL import Image
 import json
 from datetime import datetime
 import random
-import os  # Import os to check if files exist
 
 def main():
     st.title("")
